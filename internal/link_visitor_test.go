@@ -3,6 +3,8 @@ package internal
 import (
 	"fmt"
 	"golang-crawler/internal/repositories"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -14,17 +16,21 @@ import (
 
 func TestLinkVisitor_Visit(t *testing.T) {
 	t.Run("Should visit url and generate a pool of links with same subdomain", func(t *testing.T) {
-		link := "127.0.0.1:8888"
-		internalLink := "http://127.0.0.1:8888/home"
+		link := "127.0.0.1:9999"
+		internalLink := "http://127.0.0.1:9999/home"
+		urlToVisit := "http://" + link
 		htmlObj := fmt.Sprintf(`
 	<!DOCTYPE html>
 		<html>
 			<body>
 				<h1>HTML Links</h1>
 				<p><a href="%s">Test 1</a></p>
+				<p><a href="%s">Test 1 Repeated</a></p>
 				<p><a href="https://www.test2.com/">Test 2</a></p>
+				<p><a href="http://error link/">Error Link</a></p>
+				<p><a href="%s">Same Link</a></p>
 			</body>
-		</html>`, internalLink)
+		</html>`, internalLink, internalLink, urlToVisit)
 
 		l, err := net.Listen("tcp", link)
 		if err != nil {
@@ -42,27 +48,82 @@ func TestLinkVisitor_Visit(t *testing.T) {
 		srv.Start()
 		defer srv.Close()
 
-		u, err := url.Parse("http://" + link)
-		if err != nil {
-			t.Fatal(err)
-		}
-		pool := repositories.NewLinkPool([]string{})
-		sut := NewLinkVisitor(http.DefaultClient, pool)
+		pool := repositories.NewLinkInMemoryRepository()
 
-		err = sut.Visit(u)
+		err = pool.AddLink(urlToVisit)
 		assert.Nil(t, err)
 
-		assert.Equal(t, []string{internalLink}, pool.Links)
+		logger := log.New(io.Discard, "test", 0)
+
+		sut := NewLinkVisitor(http.DefaultClient, pool, logger)
+
+		err = sut.Visit()
+		assert.Nil(t, err)
+
+		want := map[string]repositories.Visited{
+			urlToVisit:   true,
+			internalLink: true,
+		}
+		assert.Equal(t, want, pool.InternalLinks)
+
+		wantE := map[string]string{
+			"https://www.test2.com/": "https://www.test2.com/",
+		}
+		assert.Equal(t, wantE, pool.ExternalLinks)
 	})
 
 }
 
 func TestLinkVisitor_Visit_Error(t *testing.T) {
-	sut := NewLinkVisitor(http.DefaultClient, repositories.NewLinkPool(nil))
-	u, err := url.Parse("http://url.dosent.exists")
+	pool := repositories.NewLinkInMemoryRepository()
+	logger := log.New(io.Discard, "test", 0)
+	sut := NewLinkVisitor(http.DefaultClient, pool, logger)
+
+	err := pool.AddLink("http://url.doesnt.exists")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sut.Visit(u)
-	assert.Equal(t, fmt.Errorf("error visiting url http://url.dosent.exists: Get \"http://url.dosent.exists\": dial tcp: lookup url.dosent.exists: no such host"), err)
+	err = sut.Visit()
+	assert.Equal(t, fmt.Errorf("error searching links from url http://url.doesnt.exists: Get \"http://url.doesnt.exists\": dial tcp: lookup url.doesnt.exists: no such host"), err)
+}
+
+func TestLinkVisitor_manageLinkFromURL(t *testing.T) {
+	rootUrl, _ := url.Parse("https://test.com")
+
+	testUrls := []string{
+		"/",
+		"/home",
+		"/test1/test2",
+		"#",
+		"https://facebook.com",
+		"https://subdomain.test.com",
+	}
+
+	repo := repositories.NewLinkInMemoryRepository()
+	err := repo.AddLink(rootUrl.String())
+	assert.Nil(t, err)
+
+	sut := NewLinkVisitor(http.DefaultClient, repo, log.New(io.Discard, "", 0))
+
+	for _, testUrl := range testUrls {
+		u, err := rootUrl.Parse(testUrl)
+		assert.Nil(t, err)
+
+		err = sut.manageLinkFromURL(rootUrl, u)
+		assert.Nil(t, err)
+	}
+
+	wantInternal := map[string]repositories.Visited{
+		"https://test.com":             false,
+		"https://test.com/":            false,
+		"https://test.com/home":        false,
+		"https://test.com/test1/test2": false,
+	}
+
+	wantExternal := map[string]string{
+		"https://facebook.com":       "https://facebook.com",
+		"https://subdomain.test.com": "https://subdomain.test.com",
+	}
+	assert.Equal(t, wantInternal, repo.InternalLinks)
+	assert.Equal(t, wantExternal, repo.ExternalLinks)
 }

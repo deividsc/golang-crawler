@@ -21,7 +21,6 @@ func LinksFinder(r io.Reader) ([]string, error) {
 		}
 
 	}
-	return links, nil
 }
 
 func getURL(token html.Token) string {
