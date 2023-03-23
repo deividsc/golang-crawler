@@ -2,6 +2,7 @@ package main
 
 import (
 	"golang-crawler/internal"
+	"golang-crawler/internal/repositories"
 	"log"
 	"os"
 )
@@ -9,7 +10,8 @@ import (
 func main() {
 	url := os.Getenv("URL_VISIT")
 	workersNumber := 30
-	wp, err := internal.NewWorkerPool(url, workersNumber)
+	repo := repositories.NewLinkInMemoryRepository()
+	wp, err := internal.NewVisitorsPool(url, workersNumber, repo, log.Default())
 	if err != nil {
 		log.Fatalf("error starting the crawler: %s", err)
 	}

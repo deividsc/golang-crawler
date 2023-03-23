@@ -9,6 +9,7 @@ type LinkRepository interface {
 	AddLink(link string) error
 	AddExternalLink(link string) error
 	GetUnvisitedLink() (string, error)
+	GetUnvisitedLinks() ([]string, error)
 }
 
 type Visited bool
@@ -20,7 +21,7 @@ type LinkInMemoryRepository struct {
 	locker         sync.Locker
 }
 
-func NewLinkInMemoryRepository(newLink chan string) *LinkInMemoryRepository {
+func NewLinkInMemoryRepository() *LinkInMemoryRepository {
 	return &LinkInMemoryRepository{
 		ExternalLinks:  map[string]string{},
 		InternalLinks:  map[string]Visited{},
@@ -70,4 +71,8 @@ func (l *LinkInMemoryRepository) GetUnvisitedLink() (string, error) {
 	l.InternalLinks[link] = true
 
 	return link, nil
+}
+
+func (l *LinkInMemoryRepository) GetUnvisitedLinks() ([]string, error) {
+	return l.UnvisitedLinks, nil
 }
