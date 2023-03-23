@@ -4,19 +4,16 @@ import (
 	"golang-crawler/internal"
 	"golang-crawler/internal/repositories"
 	"log"
-	"net/http"
 	"os"
 )
 
 func main() {
 	url := os.Getenv("URL_VISIT")
+	workersNumber := 30
 	repo := repositories.NewLinkInMemoryRepository()
-	repo.AddLink(url)
-	logger := log.New(os.Stdin, "", 0)
-	visitor := internal.NewLinkVisitor(http.DefaultClient, repo, logger)
-
-	err := visitor.Visit()
+	wp, err := internal.NewVisitorsPool(url, workersNumber, repo, log.Default())
 	if err != nil {
-		log.Fatalf("Error visiting url %s: %s", url, err)
+		log.Fatalf("error starting the crawler: %s", err)
 	}
+	wp.Start()
 }
