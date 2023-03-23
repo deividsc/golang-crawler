@@ -57,7 +57,7 @@ func TestLinkVisitor_Visit(t *testing.T) {
 
 		sut := NewLinkVisitor(http.DefaultClient, pool, logger)
 
-		err = sut.Visit()
+		err = sut.Start()
 		assert.Nil(t, err)
 
 		want := map[string]repositories.Visited{
@@ -83,7 +83,7 @@ func TestLinkVisitor_Visit_Error(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sut.Visit()
+	err = sut.Start()
 	assert.Equal(t, fmt.Errorf("error searching links from url http://url.doesnt.exists: Get \"http://url.doesnt.exists\": dial tcp: lookup url.doesnt.exists: no such host"), err)
 }
 

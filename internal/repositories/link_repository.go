@@ -14,16 +14,18 @@ type LinkRepository interface {
 type Visited bool
 
 type LinkInMemoryRepository struct {
-	ExternalLinks map[string]string
-	InternalLinks map[string]Visited
-	locker        sync.Locker
+	ExternalLinks  map[string]string
+	InternalLinks  map[string]Visited
+	UnvisitedLinks []string
+	locker         sync.Locker
 }
 
-func NewLinkInMemoryRepository() *LinkInMemoryRepository {
+func NewLinkInMemoryRepository(newLink chan string) *LinkInMemoryRepository {
 	return &LinkInMemoryRepository{
-		ExternalLinks: map[string]string{},
-		InternalLinks: map[string]Visited{},
-		locker:        &sync.Mutex{},
+		ExternalLinks:  map[string]string{},
+		InternalLinks:  map[string]Visited{},
+		locker:         &sync.Mutex{},
+		UnvisitedLinks: []string{},
 	}
 }
 
@@ -34,6 +36,7 @@ func (l *LinkInMemoryRepository) AddLink(link string) error {
 
 	if _, ok := l.InternalLinks[link]; !ok {
 		l.InternalLinks[link] = false
+		l.UnvisitedLinks = append(l.UnvisitedLinks, link)
 		return nil
 	}
 
@@ -53,17 +56,18 @@ func (l *LinkInMemoryRepository) AddExternalLink(link string) error {
 	return app_errors.ErrorLinkAlreadyExists{Link: link}
 }
 
-// GetUnvisitedLink iterate internal links and return first unvisited link setting it as visited
+// GetUnvisitedLink pop an unvisited link and put it to true on InternalLinks
 func (l *LinkInMemoryRepository) GetUnvisitedLink() (string, error) {
 	l.locker.Lock()
 	defer l.locker.Unlock()
 
-	for link, visited := range l.InternalLinks {
-		if !visited {
-			l.InternalLinks[link] = true
-			return link, nil
-		}
+	if len(l.UnvisitedLinks) == 0 {
+		return "", app_errors.ErrorNoMoreLinks{}
 	}
 
-	return "", app_errors.ErrorNoMoreLinks{}
+	link, newList := l.UnvisitedLinks[len(l.UnvisitedLinks)-1], l.UnvisitedLinks[:len(l.UnvisitedLinks)-1]
+	l.UnvisitedLinks = newList
+	l.InternalLinks[link] = true
+
+	return link, nil
 }

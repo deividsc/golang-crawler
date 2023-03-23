@@ -3,6 +3,7 @@ module golang-crawler
 go 1.19
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/net v0.8.0
 )
