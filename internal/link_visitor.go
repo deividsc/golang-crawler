@@ -2,12 +2,13 @@ package internal
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"golang-crawler/internal/app_errors"
 	"golang-crawler/internal/repositories"
 	"log"
 	"net/http"
 	"net/url"
+
+	"github.com/google/uuid"
 )
 
 type LinkVisitor struct {
@@ -113,6 +114,6 @@ func (lv LinkVisitor) manageLinkFromURL(urlVisited, link *url.URL) (IsNewLink, e
 			return false, err
 		}
 	}
-	lv.logger.Println("External link found", link)
+	//lv.logger.Println("External link found", link)
 	return false, nil
 }

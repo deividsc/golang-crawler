@@ -70,26 +70,25 @@ func (w VisitorsPool) Start() error {
 	repo.AddLink(url)
 	newLink <- url
 	startTime := time.Now()
+	visitedLinks := 0
 	for {
 		select {
 		case <-visitorReading:
 			activeVisitors++
-		case <-visitorFinished:
+		case result := <-visitorFinished:
 			activeVisitors--
-			unvisitedLinks, err := repo.GetUnvisitedLinks()
-			if err != nil {
-				return err
-			}
-			if len(unvisitedLinks) == 0 && activeVisitors == 0 {
-				fmt.Printf("Crawler finished after %f sec.\n", time.Now().Sub(startTime).Seconds())
-				//fmt.Printf("Visited links %d, External Links %d\n", len(repo.InternalLinks), len(repo.ExternalLinks))
+			visitedLinks++
+			if len(result.Links) == 0 && activeVisitors == 0 {
+				fmt.Printf("Crawler finished after %f sec. visitedLinks %d\n ", time.Now().Sub(startTime).Seconds(), visitedLinks)
 				return nil
 			}
-			link, err := repo.GetUnvisitedLink()
-			if err != nil {
-				return fmt.Errorf("error getting unvisited link from repository: %s", err)
-			}
-			newLink <- link
+
+			go func(links []string) {
+				for _, link := range links {
+					newLink <- link
+				}
+			}(result.Links)
+
 		}
 	}
 }

@@ -9,7 +9,8 @@ import (
 
 func main() {
 	url := os.Getenv("URL_VISIT")
-	workersNumber := 30
+	workersNumber := 10000
+
 	repo := repositories.NewLinkInMemoryRepository()
 	wp, err := internal.NewVisitorsPool(url, workersNumber, repo, log.Default())
 	if err != nil {
